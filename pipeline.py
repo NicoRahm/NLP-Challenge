@@ -1,5 +1,6 @@
 import random
 import numpy as np
+
 import igraph
 from sklearn import svm
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -94,7 +95,7 @@ features_TFIDF = vectorizer.fit_transform(corpus)
 # in this baseline we will train the model on only 5% of the training set
 
 # randomly select 5% of training set
-to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*0.005)))
+to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*0.003)))
 training_set_reduced = [training_set[i] for i in to_keep]
 
 
@@ -102,14 +103,21 @@ training_set_reduced = [training_set[i] for i in to_keep]
 # TF_IDF
 tf_idf = []
 
+# TF_IDF similarity 
+tf_idf_sim = []
+
 # Computing the TF_IDF
-"""
+# Computing the TF_IDF
+
 print("Storing terms from training documents as list of lists")
 terms_by_doc = [document[5].split(" ") for document in node_info]
 n_terms_per_doc = [len(terms) for terms in terms_by_doc]
 
 # store all terms in list
 all_terms = [terms for sublist in terms_by_doc for terms in sublist]
+
+# compute average number of terms
+avg_len = sum(n_terms_per_doc)/len(n_terms_per_doc)
 
 # unique terms
 all_unique_terms = list(set(all_terms))
@@ -129,7 +137,30 @@ for element in idf.keys():
 
     counter+=1
     if counter % 200 == 0:
-        print(counter, "terms have been processed")"""
+        print(counter, "terms have been processed")
+
+counter = 0
+len_all = len(all_unique_terms)        
+for i in range(len(terms_by_doc)):
+    terms_in_doc = terms_by_doc[i]
+    doc_len = len(terms_in_doc)
+    
+    feature_row_tfidf = [0]*len_all
+    
+    for term in list(set(terms_in_doc)):
+        # number of occurences of word in document
+        index = all_unique_terms.index(term)
+        tf = terms_in_doc.count(term)
+        idf_term = idf[term]
+
+        # store TF-IDF value
+        feature_row_tfidf[index] = ((1+math.log1p(1+math.log1p(tf)))/(1-0.2+(0.2*(float(doc_len)/avg_len)))) * idf_term
+    
+    
+    tf_idf.append(feature_row_tfidf)
+    counter+=1
+    if counter % 500 == 0:
+        print(counter, "documents have been processed")
 
 training_features = preprocess(training_set_reduced, IDs, node_info)
 
@@ -150,7 +181,7 @@ classifier.fit(training_features, labels_array)
 
 # test
 # we need to compute the features for the testing set 
-to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*0.005)))
+to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*0.003)))
 testing_set_reduced = [training_set[i] for i in to_keep]
 
 testing_features = preprocess(testing_set_reduced, IDs, node_info)
