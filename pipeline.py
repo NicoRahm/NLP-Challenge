@@ -115,6 +115,9 @@ comm_auth = []
 # TF_IDF
 tf_idf = []
 
+# TF_IDF similarity 
+tf_idf_sim = []
+
 # Computing the TF_IDF
 
 print("Storing terms from training documents as list of lists")
@@ -123,6 +126,9 @@ n_terms_per_doc = [len(terms) for terms in terms_by_doc]
 
 # store all terms in list
 all_terms = [terms for sublist in terms_by_doc for terms in sublist]
+
+# compute average number of terms
+avg_len = sum(n_terms_per_doc)/len(n_terms_per_doc)
 
 # unique terms
 all_unique_terms = list(set(all_terms))
@@ -143,6 +149,29 @@ for element in idf.keys():
     counter+=1
     if counter % 200 == 0:
         print(counter, "terms have been processed")
+
+counter = 0
+len_all = len(all_unique_terms)        
+for i in range(len(terms_by_doc)):
+    terms_in_doc = terms_by_doc[i]
+    doc_len = len(terms_in_doc)
+    
+    feature_row_tfidf = [0]*len_all
+    
+    for term in list(set(terms_in_doc)):
+        # number of occurences of word in document
+        index = all_unique_terms.index(term)
+        tf = terms_in_doc.count(term)
+        idf_term = idf[term]
+
+        # store TF-IDF value
+        feature_row_tfidf[index] = ((1+math.log1p(1+math.log1p(tf)))/(1-0.2+(0.2*(float(doc_len)/avg_len)))) * idf_term
+    
+    
+    tf_idf.append(feature_row_tfidf)
+    counter+=1
+    if counter % 1000 == 0:
+        print(counter, "documents have been processed")
 
 counter = 0
 for i in range(len(training_set_reduced)):
