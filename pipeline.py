@@ -31,10 +31,10 @@ testing_set = [element[0].split(" ") for element in testing_set]
 random_predictions = np.random.choice([0, 1], size=len(testing_set))
 random_predictions = zip(range(len(testing_set)),random_predictions)
 
-with open("random_predictions.csv","wb") as pred:
-    csv_out = csv.writer(pred)
-    for row in random_predictions:
-        csv_out.writerow(row)
+#with open("random_predictions.csv","wb") as pred:
+#    csv_out = csv.writer(pred)
+#    for row in random_predictions:
+#        csv_out.writerow(row)
         
 # note: Kaggle requires that you add "ID" and "category" column headers
 
@@ -116,7 +116,7 @@ tf_idf = []
 
 # Computing the TF_IDF
 
-print "Storing terms from training documents as list of lists"
+print("Storing terms from training documents as list of lists")
 terms_by_doc = [document[5].split(" ") for document in node_info]
 n_terms_per_doc = [len(terms) for terms in terms_by_doc]
 
@@ -126,7 +126,7 @@ all_terms = [terms for sublist in terms_by_doc for terms in sublist]
 # unique terms
 all_unique_terms = list(set(all_terms))
 
-print "Computing IDF values"
+print("Computing IDF values")
 # store IDF values in dictionary
 n_doc = len(training_set_reduced)
 
@@ -144,7 +144,7 @@ for element in idf.keys():
         print(counter, "terms have been processed")
 
 counter = 0
-for i in xrange(len(training_set_reduced)):
+for i in range(len(training_set_reduced)):
     source = training_set_reduced[i][0]
     target = training_set_reduced[i][1]
     
@@ -173,7 +173,7 @@ for i in xrange(len(training_set_reduced)):
    
     counter += 1
     if counter % 1000 == True:
-        print counter, "training examples processsed"
+        print(counter, "training examples processsed")
 
 # convert list of lists into array
 # documents as rows, unique words as columns (i.e., example as rows, features as columns)
@@ -205,7 +205,7 @@ to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*
 testing_set_reduced = [training_set[i] for i in to_keep]
 
 counter = 0
-for i in xrange(len(testing_set_reduced)):
+for i in range(len(testing_set_reduced)):
     source = testing_set_reduced[i][0]
     target = testing_set_reduced[i][1]
     
@@ -238,7 +238,7 @@ for i in xrange(len(testing_set_reduced)):
    
     counter += 1
     if counter % 1000 == True:
-        print counter, "testing examples processsed"
+        print(counter, "testing examples processsed")
         
 # convert list of lists into array
 # documents as rows, unique words as columns (i.e., example as rows, features as columns)
@@ -256,7 +256,7 @@ labels = [int(element[2]) for element in testing_set_reduced]
 labels = list(labels)
 labels_array = np.array(labels)
 
-print "f1 Score : ", f1_score(y_true=labels_array, y_pred = predictions_SVM)
+print("f1 Score : ", f1_score(y_true=labels_array, y_pred = predictions_SVM))
 
 
 # write predictions to .csv file suitable for Kaggle (just make sure to add the column names)
