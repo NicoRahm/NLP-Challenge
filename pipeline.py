@@ -1,5 +1,6 @@
 import random
 import numpy as np
+
 import igraph
 from sklearn import svm
 from sklearn.feature_extraction.text import TfidfVectorizer
