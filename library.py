@@ -60,11 +60,11 @@ def terms_to_graph(terms, w):
     g.add_vertices(sorted(set(terms)))
 
     # add edges, direction is preserved since the graph is directed
-    g.add_edges(from_to.keys())
+    g.add_edges(list(from_to.keys()))
 
     # set edge and vertice weights
-    g.es['weight'] = from_to.values() # based on co-occurence within sliding window
-    g.vs['weight'] = g.strength(weights=from_to.values()) # weighted degree
+    g.es['weight'] = list(from_to.values()) # based on co-occurence within sliding window
+    g.vs['weight'] = g.strength(weights=list(from_to.values())) # weighted degree
 
     return(g)
 
@@ -74,8 +74,8 @@ def compute_node_centrality(graph):
     degrees = [round(float(degree)/(len(graph.vs)-1),5) for degree in degrees]
 
     # weighted degree
-    w_degrees = graph.strenght(weights = graph.es["weight"])    
-    w_degrees = [round(float(degree)/(len(graph.vs) - 1),5) for degree in w_degrees]
+    w_degrees = graph.strength(weights=graph.es["weight"])
+    w_degrees = [round(float(degree)/(len(graph.vs)-1),5) for degree in w_degrees]
 
     # closeness
     closeness = graph.closeness(normalized=True)
@@ -85,8 +85,7 @@ def compute_node_centrality(graph):
     w_closeness = graph.closeness(normalized=True, weights=graph.es["weight"])
     w_closeness = [round(value,5) for value in w_closeness]
 
-    return(zip(graph.vs["name"],degrees,w_degrees,closeness,w_closeness))
-
+    return(list(zip(graph.vs["name"],degrees,w_degrees,closeness,w_closeness)))
 
 def print_top10(feature_names, clf, class_labels):
     """Prints features with the highest coefficient values, per class"""

@@ -13,8 +13,7 @@ import math
 
 import xgboost as xgb
 from library import terms_to_graph
-from preprocessor import preprocess
-
+from preprocessor import *
 
 with open("testing_set.txt", "r") as f:
     reader = csv.reader(f)
@@ -62,6 +61,10 @@ with open("node_information.csv", "r") as f:
     reader = csv.reader(f)
     node_info  = list(reader)
 
+#Outlook on the data
+#print(training_set[:5])
+#print(node_info[10000:10001])
+
 IDs = [element[0] for element in node_info]
 
 # compute TFIDF vector of each paper
@@ -99,7 +102,7 @@ to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*
 training_set_reduced = [training_set[i] for i in to_keep]
 
 
-
+"""
 # TF_IDF
 tf_idf = []
 
@@ -161,8 +164,14 @@ for i in range(len(terms_by_doc)):
     counter+=1
     if counter % 500 == 0:
         print(counter, "documents have been processed")
+"""
 
 training_features = preprocess(training_set_reduced, IDs, node_info)
+
+#Add tw-idf on abstracts
+all_unique_terms, idf = init_tw_idf(training_features, training_set_reduced, node_info)
+training_features = add_tw_idf(training_features, training_set_reduced, node_info, all_unique_terms, idf)
+
 
 # scale
 training_features = preprocessing.scale(training_features)
@@ -185,6 +194,8 @@ to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*
 testing_set_reduced = [training_set[i] for i in to_keep]
 
 testing_features = preprocess(testing_set_reduced, IDs, node_info)
+
+testing_features = add_tw_idf(testing_features, testing_set_reduced, node_info, all_unique_terms, idf)
 
 # scale
 testing_features = preprocessing.scale(testing_features)
