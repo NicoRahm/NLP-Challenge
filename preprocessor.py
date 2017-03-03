@@ -13,6 +13,7 @@ from sklearn.decomposition import PCA
 
 import xgboost as xgb
 from library import *
+from scipy.sparse import csr_matrix
 
 
 nltk.download('punkt') # for tokenization
@@ -20,7 +21,7 @@ nltk.download('stopwords')
 stpwds = set(nltk.corpus.stopwords.words("english"))
 stemmer = nltk.stem.PorterStemmer()
 
-def preprocess(data_set_reduced, IDs, node_info, degrees, closeness):
+def preprocess(data_set_reduced, IDs, node_info, degrees, closeness, g_authors, journals, journal_importance):
     # we will use three basic features:
     
     # number of overlapping words in title
@@ -37,7 +38,16 @@ def preprocess(data_set_reduced, IDs, node_info, degrees, closeness):
     
     # Target degree
     target_deg = []
+    
+    # Inverse distance between the authors of the documents
+    inv_dist = []
+    
+    # Target journal importance 
+    target_importance = []
 
+    authors = [node[3].split(",") for node in node_info]
+    unique_authors = list(set([item for sublist in authors for item in sublist]))
+    
     
     counter = 0
     for i in range(len(data_set_reduced)):
@@ -53,6 +63,24 @@ def preprocess(data_set_reduced, IDs, node_info, degrees, closeness):
         
         target_deg.append(degrees[index_target])
         target_close.append(closeness[index_target])
+        
+        if(unique_authors.index(node_info[index_source][3].split(",")[0]) != unique_authors.index(node_info[index_target][3].split(",")[0])):
+            
+        
+            d = g_authors.shortest_paths_dijkstra(unique_authors.index(node_info[index_source][3].split(",")[0]), unique_authors.index(node_info[index_target][3].split(",")[0]))
+            if (d[0][0] == np.inf):
+                inv_dist.append(0)
+            if (d[0][0] == 0): 
+                inv_dist.append(2)
+            else: 
+                inv_dist.append(1/d[0][0])
+        else: 
+            inv_dist.append(2)
+            
+        if (node_info[index_target][4] != ''):
+            target_importance.append(journal_importance[journals.index(node_info[index_target][4])])
+        else:
+            target_importance.append(0)
         
     	# convert to lowercase and tokenize
         source_title = source_info[2].lower().split(" ")
@@ -81,7 +109,7 @@ def preprocess(data_set_reduced, IDs, node_info, degrees, closeness):
     return np.array([overlap_title, temp_diff, comm_auth, target_close, target_deg]).T
 
 # create the idf matrix and all_unique_terms with training data
-def init_tw_idf(training_features, training_set, node_info):
+def init_tw_idf(training_set, node_info):
     #We only keep the info of the papers that are implicated in the given training_set (which can be reduced)
     filtered_node_ids = []
     for link_data in training_set:
@@ -201,23 +229,16 @@ def add_tw_idf(data_features, data_set, node_info, all_unique_terms, idf):
             # store TF-IDF value
             feature_row_tfidf[index] = ((1+math.log1p(1+math.log1p(tf)))/(1-0.2+(0.2*(float(doc_len)/avg_len)))) * idf_term
     
-        features_degree.append(feature_row_degree)
-        features_w_degree.append(feature_row_w_degree)
-        features_closeness.append(feature_row_closeness)
-        features_w_closeness.append(feature_row_w_closeness)
-        features_tfidf.append(feature_row_tfidf)
+        features_degree.append(csr_matrix(feature_row_degree))
+        features_w_degree.append(csr_matrix(feature_row_w_degree))
+        features_closeness.append(csr_matrix(feature_row_closeness))
+        features_w_closeness.append(csr_matrix(feature_row_w_closeness))
+        features_tfidf.append(csr_matrix(feature_row_tfidf))
     
         counter += 1
         if counter % 200 == 0:
             print(counter, "documents have been processed", round(100*(counter/len(all_graphs)), 2), "%")
     
-    # convert list of lists into array
-    # documents as rows, unique words as columns (i.e., document-term matrix)
-    data_set_tfidf = np.array(features_tfidf)
-    data_set_degree = np.array(features_degree)
-    data_set_w_degree = np.array(features_w_degree)
-    data_set_closeness = np.array(features_closeness)
-    data_set_w_closeness = np.array(features_w_closeness)
 
     # Now we have a representation of each abstract (in fact 5 different representations !)
     # We'll find the pairs associated to each possible link et calculate the "produit scalaire"
@@ -225,7 +246,7 @@ def add_tw_idf(data_features, data_set, node_info, all_unique_terms, idf):
     for link_data in data_set:
         index1 = np.where(abstracts_index == link_data[0])[0][0]
         index2 = np.where(abstracts_index == link_data[1])[0][0]
-        product = np.vdot(data_set_degree[index1],data_set_degree[index2])
+        product = features_degree[index1].dot(features_degree[index2].transpose()).toarray()[0][0]
         twidf_features.append(product)
         
     #outlook for curiosity
