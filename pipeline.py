@@ -89,8 +89,9 @@ to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*
 training_set_reduced = [training_set[i] for i in to_keep]
 
 
-print("Computing the graph of documents")
-# Construct the graph of the data set 
+print("Computing the graph of document citation")
+
+# Construct the graph of the citation
 edges = [(element[0],element[1]) for element in training_set_reduced if element[2]=="1"]
 
 nodes = IDs
@@ -111,7 +112,42 @@ degrees = g.degree()
 degrees = [round(float(degree)/(len(g.vs)-1),5) for degree in degrees]
 
 
-training_features = preprocess(training_set_reduced, IDs, node_info, degrees, closeness)
+print("Computing the graph of authors")
+
+authors = [node[3].split(",") for node in node_info]
+unique_authors = list(set([item for sublist in authors for item in sublist]))
+
+edges = [(node_info[IDs.index(element[0])][3].split(",")[0], node_info[IDs.index(element[1])][3].split(",")[0]) for element in training_set_reduced if element[2]=="1" and node_info[IDs.index(element[0])][3].split(",")[0] != '' and node_info[IDs.index(element[1])][3].split(",")[0] != '']
+
+# create empty directed graph
+g_authors = igraph.Graph(directed=True)
+ 
+# add vertices
+g_authors.add_vertices(unique_authors)
+ 
+# add edges
+g_authors.add_edges(edges)
+
+print("Computing importance of journal")
+
+journals = list(set([node[4] for node in node_info if node[4] != '']))
+journal_importance = [0]*len(journals)
+
+for i in range(len(training_set_reduced)):
+    target_journal = node_info[IDs.index(training_set_reduced[i][1])][4]
+    if (target_journal != ''):
+        journal_importance[journals.index(target_journal)] += 1
+
+n_papers = [0]*len(journals)
+for i in range(len(node_info)):
+    journal = node_info[i][4]
+    if (journal != ''):
+        n_papers[journals.index(journal)] += 1
+
+for i in range(len(journal_importance)):
+    journal_importance[i]/= n_papers[i]
+
+training_features = preprocess(training_set_reduced, IDs, node_info, degrees, closeness, g_authors, journals, journal_importance)
 
 #Add tw-idf on abstracts
 path_init = "data/idf_init_titles"
@@ -186,7 +222,7 @@ classifier.fit(training_features, labels_array)
 to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*ratio)))
 testing_set_reduced = [training_set[i] for i in to_keep]
 
-testing_features = preprocess(testing_set_reduced, IDs, node_info, degrees, closeness)
+testing_features = preprocess(testing_set_reduced, IDs, node_info, degrees, closeness, g_authors, journals, journal_importance)
 
 testing_features = add_tw_idf(testing_features, testing_set_reduced, node_info, abstracts)
 testing_features = add_tw_idf(testing_features, testing_set_reduced, node_info, titles)
