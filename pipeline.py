@@ -1,5 +1,6 @@
 import random
 import numpy as np
+import pickle
 
 import igraph
 from sklearn import svm
@@ -15,6 +16,7 @@ import xgboost as xgb
 from library import terms_to_graph
 from preprocessor import *
 
+saver = {}
 with open("testing_set.txt", "r") as f:
     reader = csv.reader(f)
     testing_set  = list(reader)
@@ -98,7 +100,7 @@ features_TFIDF = vectorizer.fit_transform(corpus)
 # in this baseline we will train the model on only 5% of the training set
 
 # randomly select 5% of training set
-to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*0.003)))
+to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*0.005)))
 training_set_reduced = [training_set[i] for i in to_keep]
 
 
@@ -165,21 +167,23 @@ for i in range(len(terms_by_doc)):
     if counter % 500 == 0:
         print(counter, "documents have been processed")
 """
-
 training_features = preprocess(training_set_reduced, IDs, node_info)
 
 #Add tw-idf on abstracts
 all_unique_terms, idf = init_tw_idf(training_features, training_set_reduced, node_info)
 training_features = add_tw_idf(training_features, training_set_reduced, node_info, all_unique_terms, idf)
 
-
 # scale
 training_features = preprocessing.scale(training_features)
+
+#Save
+saver["training_features"] = training_features
 
 # convert labels into integers then into column array
 labels = [int(element[2]) for element in training_set_reduced]
 labels = list(labels)
 labels_array = np.array(labels)
+saver["training_labels"] = labels_array
 
 # initialize basic SVM
 classifier = svm.LinearSVC()
@@ -190,7 +194,7 @@ classifier.fit(training_features, labels_array)
 
 # test
 # we need to compute the features for the testing set 
-to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*0.003)))
+to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*0.005)))
 testing_set_reduced = [training_set[i] for i in to_keep]
 
 testing_features = preprocess(testing_set_reduced, IDs, node_info)
@@ -200,6 +204,8 @@ testing_features = add_tw_idf(testing_features, testing_set_reduced, node_info, 
 # scale
 testing_features = preprocessing.scale(testing_features)
 
+saver["testing_features"] = testing_features
+
 # issue predictions
 predictions_SVM = list(classifier.predict(testing_features))
 
@@ -208,8 +214,15 @@ predictions_SVM = list(classifier.predict(testing_features))
 labels = [int(element[2]) for element in testing_set_reduced]
 labels = list(labels)
 labels_array = np.array(labels)
+saver["testing_labels"] = labels_array
 
 print("f1 Score : ", f1_score(y_true=labels_array, y_pred = predictions_SVM))
+
+file_Name = "data/saved_data"
+fileObject = open(file_Name,'wb') 
+pickle.dump(saver,fileObject)
+fileObject.close()
+
 
 
 # write predictions to .csv file suitable for Kaggle (just make sure to add the column names)

@@ -121,7 +121,7 @@ def add_tw_idf(data_features, data_set, node_info, all_unique_terms, idf):
     abstracts = np.array([d[5] for d in node_info])
     abstracts_index = np.array([d[0] for d in node_info])
     
-    print("storing terms from", len(data_set), " documents as list of lists")
+    print("storing terms from roughly", 2*len(data_set), " documents as list of lists")
     terms_by_doc = [document.split(" ") for document in abstracts]
     n_terms_per_doc = [len(terms) for terms in terms_by_doc]
     # compute average number of terms
