@@ -82,7 +82,7 @@ features_TFIDF = vectorizer.fit_transform(corpus)
 # in this baseline we will train the model on only 5% of the training set
 
 # randomly select 5% of training set
-to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*0.005)))
+to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*0.05)))
 training_set_reduced = [training_set[i] for i in to_keep]
 
 
@@ -239,7 +239,7 @@ classifier.fit(training_features, labels_array)
 
 # test
 # we need to compute the features for the testing set 
-to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*0.005)))
+to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*0.05)))
 testing_set_reduced = [training_set[i] for i in to_keep]
 
 testing_features = preprocess(testing_set_reduced, IDs, node_info, degrees, closeness, g_authors, journals, journal_importance)
