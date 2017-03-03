@@ -20,7 +20,7 @@ nltk.download('stopwords')
 stpwds = set(nltk.corpus.stopwords.words("english"))
 stemmer = nltk.stem.PorterStemmer()
 
-def preprocess(data_set_reduced, IDs, node_info):
+def preprocess(data_set_reduced, IDs, node_info, degrees, closeness):
     # we will use three basic features:
     
     # number of overlapping words in title
@@ -32,6 +32,13 @@ def preprocess(data_set_reduced, IDs, node_info):
     # number of common authors
     comm_auth = []
     
+    # Target closeness
+    target_close = []
+    
+    # Target degree
+    target_deg = []
+
+    
     counter = 0
     for i in range(len(data_set_reduced)):
         source = data_set_reduced[i][0]
@@ -42,6 +49,10 @@ def preprocess(data_set_reduced, IDs, node_info):
         
         source_info = [element for element in node_info if element[0]==source][0]
         target_info = [element for element in node_info if element[0]==target][0]
+        
+        
+        target_deg.append(degrees[index_target])
+        target_close.append(closeness[index_target])
         
     	# convert to lowercase and tokenize
         source_title = source_info[2].lower().split(" ")
@@ -67,7 +78,7 @@ def preprocess(data_set_reduced, IDs, node_info):
     # convert list of lists into array
     # documents as rows, unique words as columns (i.e., example as rows, features as columns)
     
-    return np.array([overlap_title, temp_diff, comm_auth]).T
+    return np.array([overlap_title, temp_diff, comm_auth, target_close, target_deg]).T
 
 # create the idf matrix and all_unique_terms with training data
 def init_tw_idf(training_features, training_set, node_info):

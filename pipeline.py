@@ -75,34 +75,37 @@ vectorizer = TfidfVectorizer(stop_words="english")
 # each row is a node in the order of node_info
 features_TFIDF = vectorizer.fit_transform(corpus)
 
-## the following shows how to construct a graph with igraph
-## even though in this baseline we don't use it
-## look at http://igraph.org/python/doc/igraph.Graph-class.html for feature ideas
 
-#edges = [(element[0],element[1]) for element in training_set if element[2]=="1"]
 
-## some nodes may not be connected to any other node
-## hence the need to create the nodes of the graph from node_info.csv,
-## not just from the edge list
-
-#nodes = IDs
-
-## create empty directed graph
-#g = igraph.Graph(directed=True)
- 
-## add vertices
-#g.add_vertices(nodes)
- 
-## add edges
-#g.add_edges(edges)
 
 # for each training example we need to compute features
 # in this baseline we will train the model on only 5% of the training set
 
 # randomly select 5% of training set
-to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*0.005)))
+to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*0.5)))
 training_set_reduced = [training_set[i] for i in to_keep]
 
+
+print("Computing the graph of documents")
+# Construct the graph of the data set 
+edges = [(element[0],element[1]) for element in training_set_reduced if element[2]=="1"]
+
+nodes = IDs
+
+# create empty directed graph
+g = igraph.Graph(directed=True)
+ 
+# add vertices
+g.add_vertices(nodes)
+ 
+# add edges
+g.add_edges(edges)
+
+closeness = g.closeness(normalized=True)
+closeness = [round(value,5) for value in closeness]
+    
+degrees = g.degree()
+degrees = [round(float(degree)/(len(g.vs)-1),5) for degree in degrees]
 
 """
 # TF_IDF
@@ -167,7 +170,7 @@ for i in range(len(terms_by_doc)):
     if counter % 500 == 0:
         print(counter, "documents have been processed")
 """
-training_features = preprocess(training_set_reduced, IDs, node_info)
+training_features = preprocess(training_set_reduced, IDs, node_info, degrees, closeness)
 
 #Add tw-idf on abstracts
 all_unique_terms, idf = init_tw_idf(training_features, training_set_reduced, node_info)
@@ -186,7 +189,9 @@ labels_array = np.array(labels)
 saver["training_labels"] = labels_array
 
 # initialize basic SVM
-classifier = svm.LinearSVC()
+classifier = xgb.XGBClassifier(n_estimators = 100, 
+                               learning_rate = 0.1, 
+                               max_depth = 3)
 
 # train
 classifier.fit(training_features, labels_array)
@@ -194,10 +199,10 @@ classifier.fit(training_features, labels_array)
 
 # test
 # we need to compute the features for the testing set 
-to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*0.005)))
+to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*0.05)))
 testing_set_reduced = [training_set[i] for i in to_keep]
 
-testing_features = preprocess(testing_set_reduced, IDs, node_info)
+testing_features = preprocess(testing_set_reduced, IDs, node_info, degrees, closeness)
 
 testing_features = add_tw_idf(testing_features, testing_set_reduced, node_info, all_unique_terms, idf)
 
