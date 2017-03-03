@@ -10,6 +10,7 @@ import nltk
 import csv
 import math
 from sklearn.decomposition import PCA
+import sys
 
 import xgboost as xgb
 from library import *
@@ -109,7 +110,7 @@ def preprocess(data_set_reduced, IDs, node_info, degrees, closeness, g_authors, 
     return np.array([overlap_title, temp_diff, comm_auth, target_close, target_deg]).T
 
 # create the idf matrix and all_unique_terms with training data
-def init_tw_idf(training_set, node_info):
+def init_tw_idf(training_set, node_info, feature):
     #We only keep the info of the papers that are implicated in the given training_set (which can be reduced)
     filtered_node_ids = []
     for link_data in training_set:
@@ -120,24 +121,25 @@ def init_tw_idf(training_set, node_info):
     #keep only relevant papers
     node_info = np.array([node for node in node_info if node[0] in filtered_node_ids])
     
-    abstracts = np.array([d[5] for d in node_info])
+    #rows is meants for list of abstracts or list of titles
+    rows = np.array([d[feature['index']] for d in node_info])
     
     print("Initializing TW_IDF with", len(training_set), "training documents ")
-    terms_by_doc = [document.split(" ") for document in abstracts]
+    terms_by_row = [row.split(" ") for row in rows]
     # store all terms in list
-    all_terms = [terms for sublist in terms_by_doc for terms in sublist]
+    all_terms = [terms for sublist in terms_by_row for terms in sublist]
     # unique terms
     all_unique_terms = list(set(all_terms))
     print("all_unique_terms : " , len(all_unique_terms))
     
     idf = dict(list(zip(all_unique_terms,[0]*len(all_unique_terms))))
     counter = 0
-    n_doc = len(abstracts)
+    n_rows = len(rows)
     for element in idf.keys():
         # number of documents in which each term appears
-        df = sum([element in terms for terms in terms_by_doc])
+        df = sum([element in terms for terms in terms_by_row])
         # idf
-        idf[element] = math.log10(float(n_doc+1)/df)
+        idf[element] = math.log10(float(n_rows+1)/df)
     
         counter+=1
         if counter % 200 == 0:
@@ -145,8 +147,9 @@ def init_tw_idf(training_set, node_info):
     return all_unique_terms, idf
     
 
-def add_tw_idf(data_features, data_set, node_info, all_unique_terms, idf):
-    
+def add_tw_idf(data_features, data_set, node_info, feature):
+    all_unique_terms = feature['all_unique_terms']
+    idf = feature['idf']
     #We only keep the info of the papers that a implicated in the given data_set (which can be reduced)
     filtered_node_ids = []
     for link_data in data_set:
@@ -246,8 +249,10 @@ def add_tw_idf(data_features, data_set, node_info, all_unique_terms, idf):
     for link_data in data_set:
         index1 = np.where(abstracts_index == link_data[0])[0][0]
         index2 = np.where(abstracts_index == link_data[1])[0][0]
-        product = features_degree[index1].dot(features_degree[index2].transpose()).toarray()[0][0]
-        twidf_features.append(product)
+        tfidf_product = features_tfidf[index1].dot(features_tfidf[index2].transpose()).toarray()[0][0]
+        w_degree_product = features_w_degree[index1].dot(features_w_degree[index2].transpose()).toarray()[0][0]
+        w_closeness_product = features_w_closeness[index1].dot(features_w_closeness[index2].transpose()).toarray()[0][0]
+        twidf_features.append([tfidf_product, w_degree_product, w_closeness_product])
         
     #outlook for curiosity
     print("twidf_features", twidf_features[:2])
@@ -255,6 +260,8 @@ def add_tw_idf(data_features, data_set, node_info, all_unique_terms, idf):
     new_data_features = []
     for i in range(len(data_features)):
             new_data_features.append(np.append(data_features[i], twidf_features[i]))
+            #if i < 2:
+            #    print(new_data_features[i])
     print("tw_idf successful")
     return np.array(new_data_features)
     
