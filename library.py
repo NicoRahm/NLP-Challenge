@@ -65,7 +65,6 @@ def terms_to_graph(terms, w):
     # set edge and vertice weights
     g.es['weight'] = list(from_to.values()) # based on co-occurence within sliding window
     g.vs['weight'] = g.strength(weights=list(from_to.values())) # weighted degree
-
     return(g)
 
 def compute_node_centrality(graph):

@@ -26,7 +26,7 @@ labels_array = saved["training_labels"]
 #param = {'bst:max_depth':2, 'bst:eta':1, 'silent':1, 'objective':'binary:logistic' }
 #dtrain = xgb.DMatrix(training_features, label=labels_array)
 #bst = xgb.train(param, dtrain, 10)
-gbm = xgb.XGBClassifier(max_depth=6, n_estimators=200, learning_rate=0.03).fit(training_features, labels_array)
+gbm = xgb.XGBClassifier(max_depth=6, n_estimators=300, learning_rate=0.03).fit(training_features, labels_array)
 #classifier = svm.LinearSVC()
 
 # train
@@ -46,7 +46,7 @@ predictions_SVM = gbm.predict(testing_features)
 
 # Print F1 score
 labels_array = saved["testing_labels"]
-print(predictions_SVM)
+#print(predictions_SVM.shape)
 
 print("f1 Score : ", f1_score(y_true=labels_array, y_pred = predictions_SVM))
 
