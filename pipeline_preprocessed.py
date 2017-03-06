@@ -8,6 +8,11 @@ from sklearn.metrics.pairwise import linear_kernel
 from sklearn import preprocessing
 from sklearn.metrics import f1_score
 
+from keras.models import Sequential
+from keras.layers import Dense, Activation
+from keras.activations import softmax, sigmoid
+
+
 import math
 
 import xgboost as xgb
@@ -29,17 +34,36 @@ to_keep_test = range(int(len(training_features)*0.95), len(training_features))
 training_features_train = training_features[to_keep_train]
 labels_array_train = labels_array[to_keep_train]
 
-training_features_train = training_features_train[:, [0,1,2,4,5,6,8,11]]
+#training_features_train = training_features_train[:, [0,1,2,4,5,6,8,11]]
 
 
 # initialize basic SVM
 #param = {'bst:max_depth':2, 'bst:eta':1, 'silent':1, 'objective':'binary:logistic' }
 #dtrain = xgb.DMatrix(training_features, label=labels_array)
 #bst = xgb.train(param, dtrain, 10)
-gbm = xgb.XGBClassifier(max_depth=10, 
-                        n_estimators=400, 
-                        learning_rate=0.08,
-                        reg_alpha = 0.01).fit(training_features_train, labels_array_train)
+#gbm = xgb.XGBClassifier(max_depth=10, 
+#                        n_estimators=400, 
+#                        learning_rate=0.08,
+#                        reg_alpha = 0.01).fit(training_features_train, labels_array_train)
+
+
+model = Sequential()
+model.add(Dense(32, input_shape = (13,)))
+model.add(Activation('sigmoid'))
+
+model.add(Dense(128))
+model.add(Activation('sigmoid'))
+
+model.add(Dense(32))
+model.add(Activation('sigmoid'))
+
+model.add(Dense(1))
+model.add(Activation('sigmoid'))
+
+model.compile(optimizer = 'Adam', loss = 'binary_crossentropy')
+
+model.fit(training_features_train, labels_array_train, nb_epoch=5)
+
 #classifier = svm.LinearSVC()
 
 # train
@@ -53,7 +77,7 @@ gbm = xgb.XGBClassifier(max_depth=10,
 
 
 testing_features = training_features[to_keep_test]
-testing_features = testing_features[:, [0,1,2,4,5,6,8,11]]
+#testing_features = testing_features[:, [0,1,2,4,5,6,8,11]]
 
 #
 ## Select data
@@ -63,14 +87,15 @@ testing_features = testing_features[:, [0,1,2,4,5,6,8,11]]
 #predictions_SVM = list(classifier.predict(testing_features))
 #dtest = xgb.DMatrix(testing_features)
 #predictions_SVM = np.round(bst.predict(dtest))
-predictions_SVM = gbm.predict(testing_features)
+#predictions_SVM = gbm.predict(testing_features)
+predictions_SVM = model.predict(testing_features)
 
 # Print F1 score
 #labels_array = saved["testing_labels"]
-#labels_array_test = labels_array[to_keep_test]
-#print(predictions_SVM.shape)
+labels_array_test = labels_array[to_keep_test]
+print(predictions_SVM.shape)
 
-#print("f1 Score : ", f1_score(y_true=labels_array_test, y_pred = predictions_SVM))
+print("f1 Score : ", f1_score(y_true=labels_array_test, y_pred = np.round(predictions_SVM)))
 
 
 #write predictions to .csv file suitable for Kaggle (just make sure to add the column names)

@@ -88,7 +88,8 @@ print("RATIO :", ratio)
 
 #to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*ratio)))
 #to_keep = range(round(len(training_set)*ratio))
-#
+
+
 #training_set_reduced = [training_set[i] for i in to_keep]
 
 training_set_reduced = training_set
@@ -151,7 +152,7 @@ for i in range(len(node_info)):
 for i in range(len(journal_importance)):
     journal_importance[i]/= n_papers[i]
 
-training_features = preprocess(training_set_reduced, IDs, node_info, degrees, closeness, g_authors, journals, journal_importance)
+training_features = preprocess(training_set_reduced, IDs, node_info, g, degrees, closeness, g_authors, journals, journal_importance)
 
 #Add tw-idf on abstracts
 path_init = "data/idf_init_titles"

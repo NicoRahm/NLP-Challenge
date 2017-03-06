@@ -22,7 +22,7 @@ nltk.download('stopwords')
 stpwds = set(nltk.corpus.stopwords.words("english"))
 stemmer = nltk.stem.PorterStemmer()
 
-def preprocess(data_set_reduced, IDs, node_info, degrees, closeness, g_authors, journals, journal_importance):
+def preprocess(data_set_reduced, IDs, node_info, g_articles, degrees, closeness, g_authors, journals, journal_importance):
     # we will use three basic features:
     
     # number of overlapping words in title
@@ -43,8 +43,14 @@ def preprocess(data_set_reduced, IDs, node_info, degrees, closeness, g_authors, 
     # Importance of the principal author of the target 
     target_author_deg = []
     
+    # Closeness of the principal author of the target
+    target_author_close = []
+    
     # Target journal importance 
     target_importance = []
+    
+    # Number of common article cited 
+    comm_cit = []
 
     authors = [node[3].split(",") for node in node_info]
     unique_authors = list(set([item for sublist in authors for item in sublist]))
@@ -67,15 +73,22 @@ def preprocess(data_set_reduced, IDs, node_info, degrees, closeness, g_authors, 
         
         if node_info[index_target][3].split(",")[0] != '':
             target_author_deg.append(g_authors.degree(unique_authors.index(node_info[index_target][3].split(",")[0])))
+            target_author_close.append(g_authors.closeness(unique_authors.index(node_info[index_target][3].split(",")[0])))
         
         else:
             target_author_deg.append(0)
+            target_author_close.append(0)
         
             
         if (node_info[index_target][4] != ''):
             target_importance.append(journal_importance[journals.index(node_info[index_target][4])])
         else:
             target_importance.append(0)
+        
+        source_neighb = set(g_articles.neighborhood(index_source))
+        target_neighb = set(g_articles.neighborhood(index_target))
+        
+        comm_cit.append(len(source_neighb.intersection(target_neighb)))
         
     	# convert to lowercase and tokenize
         source_title = source_info[2].lower().split(" ")
@@ -101,7 +114,7 @@ def preprocess(data_set_reduced, IDs, node_info, degrees, closeness, g_authors, 
     # convert list of lists into array
     # documents as rows, unique words as columns (i.e., example as rows, features as columns)
     
-    return np.array([overlap_title, temp_diff, comm_auth, source_close, target_deg, target_author_deg, target_importance]).T
+    return np.array([overlap_title, temp_diff, comm_auth, source_close, target_deg, target_author_deg, target_author_close, target_importance, comm_cit]).T
 
 # create the idf matrix and all_unique_terms with training data
 def init_tw_idf(training_set, node_info, feature):
@@ -182,12 +195,14 @@ def add_tw_idf(data_features, data_set, node_info, feature):
     print("computing vector representations of each document")
     
     b = 0.003
+    k1= 0.05
     
     features_degree = []
     features_w_degree = []
     features_closeness = []
     features_w_closeness = []
     features_tfidf = []
+    bm25 = []
     
     len_all = len(all_unique_terms)
     
@@ -207,6 +222,7 @@ def add_tw_idf(data_features, data_set, node_info, feature):
         feature_row_closeness = [0]*len_all
         feature_row_w_closeness = [0]*len_all
         feature_row_tfidf = [0]*len_all
+        bm25_row = [0]*len_all
     
         for term in list(set(terms_in_doc)):
             index = all_unique_terms.index(term)
@@ -225,12 +241,14 @@ def add_tw_idf(data_features, data_set, node_info, feature):
     
             # store TF-IDF value
             feature_row_tfidf[index] = ((1+math.log1p(1+math.log1p(tf)))/(1-0.2+(0.2*(float(doc_len)/avg_len)))) * idf_term
+            bm25_row[index] = idf_term * (k1 +1)*tf/(k1 + tf)
     
         features_degree.append(csr_matrix(feature_row_degree))
         features_w_degree.append(csr_matrix(feature_row_w_degree))
         features_closeness.append(csr_matrix(feature_row_closeness))
         features_w_closeness.append(csr_matrix(feature_row_w_closeness))
         features_tfidf.append(csr_matrix(feature_row_tfidf))
+        bm25.append(csr_matrix(bm25_row))
     
         counter += 1
         if counter % 200 == 0:
@@ -241,12 +259,26 @@ def add_tw_idf(data_features, data_set, node_info, feature):
     # We'll find the pairs associated to each possible link et calculate the "produit scalaire"
     twidf_features = []
     for link_data in data_set:
+        
         index1 = np.where(abstracts_index == link_data[0])[0][0]
         index2 = np.where(abstracts_index == link_data[1])[0][0]
+        
         tfidf_product = features_tfidf[index1].dot(features_tfidf[index2].transpose()).toarray()[0][0]
+        
+        degree_product = features_degree[index1].dot(features_degree[index2].transpose()).toarray()[0][0]
+        
         w_degree_product = features_w_degree[index1].dot(features_w_degree[index2].transpose()).toarray()[0][0]
+        
+        closeness_product = features_closeness[index1].dot(features_closeness[index2].transpose()).toarray()[0][0]
+        
         w_closeness_product = features_w_closeness[index1].dot(features_w_closeness[index2].transpose()).toarray()[0][0]
-        twidf_features.append([tfidf_product, w_degree_product, w_closeness_product])
+        
+        source = bm25[index1].toarray()
+        target = bm25[index2].toarray()
+        BM25 = source[:,target != 0].sum()
+        
+        twidf_features.append([tfidf_product, degree_product, w_degree_product, closeness_product,w_closeness_product, BM25])
+          
         
     #outlook for curiosity
     print("twidf_features", twidf_features[:2])
