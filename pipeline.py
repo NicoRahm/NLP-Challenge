@@ -9,9 +9,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import linear_kernel
 from sklearn import preprocessing
 from sklearn.metrics import f1_score
-import nltk
+
 import csv
-import math
 
 import xgboost as xgb
 from library import terms_to_graph
@@ -84,11 +83,15 @@ features_TFIDF = vectorizer.fit_transform(corpus)
 
 # randomly select 5% of training set
 
-ratio = 0.003
+ratio = 1
 print("RATIO :", ratio)
-to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*ratio)))
-training_set_reduced = [training_set[i] for i in to_keep]
 
+#to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*ratio)))
+#to_keep = range(round(len(training_set)*ratio))
+#
+#training_set_reduced = [training_set[i] for i in to_keep]
+
+training_set_reduced = training_set
 
 print("Computing the graph of document citation")
 
@@ -221,9 +224,12 @@ classifier.fit(training_features, labels_array)
 # test
 # we need to compute the features for the testing set 
 
-to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*ratio)))
+#to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*ratio/5)))
+#to_keep = range(round(len(training_set)*ratio), len(training_set))
+#
+#testing_set_reduced = [training_set[i] for i in to_keep]
 
-testing_set_reduced = [training_set[i] for i in to_keep]
+testing_set_reduced = testing_set
 
 testing_features = preprocess(testing_set_reduced, IDs, node_info, degrees, closeness, g_authors, journals, journal_importance)
 
@@ -249,7 +255,7 @@ print("f1 Score : ", f1_score(y_true=labels_array, y_pred = predictions_SVM))
 
 file_Name = "data/saved_data"
 fileObject = open(file_Name,'wb') 
-pickle.dump(saver,fileObject)
+pickle.dump(saver,fileObject) 
 fileObject.close()
 
 
@@ -257,7 +263,11 @@ fileObject.close()
 # write predictions to .csv file suitable for Kaggle (just make sure to add the column names)
 # predictions_SVM = zip(range(len(testing_set)), predictions_SVM)
 
-# with open("improved_predictions.csv","wb") as pred1:
-#     csv_out = csv.writer(pred1)
-#     for row in predictions_SVM:
-#         csv_out.writerow(row)
+f = open("improved_predictions.csv", 'w')
+f.write('id,category\n')
+for i in range(len(predictions_SVM)):
+    f.write(str(i))
+    f.write(',')
+    f.write(str(predictions_SVM[i]))
+    f.write('\n') 
+f.close()

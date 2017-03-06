@@ -34,14 +34,14 @@ def preprocess(data_set_reduced, IDs, node_info, degrees, closeness, g_authors, 
     # number of common authors
     comm_auth = []
     
-    # Target closeness
-    target_close = []
+    # Source closeness
+    source_close = []
     
     # Target degree
     target_deg = []
     
-    # Inverse distance between the authors of the documents
-    inv_dist = []
+    # Importance of the principal author of the target 
+    target_author_deg = []
     
     # Target journal importance 
     target_importance = []
@@ -63,20 +63,14 @@ def preprocess(data_set_reduced, IDs, node_info, degrees, closeness, g_authors, 
         
         
         target_deg.append(degrees[index_target])
-        target_close.append(closeness[index_target])
+        source_close.append(closeness[index_source])
         
-        if(unique_authors.index(node_info[index_source][3].split(",")[0]) != unique_authors.index(node_info[index_target][3].split(",")[0])):
-            
+        if node_info[index_target][3].split(",")[0] != '':
+            target_author_deg.append(g_authors.degree(unique_authors.index(node_info[index_target][3].split(",")[0])))
         
-            d = g_authors.shortest_paths_dijkstra(unique_authors.index(node_info[index_source][3].split(",")[0]), unique_authors.index(node_info[index_target][3].split(",")[0]))
-            if (d[0][0] == np.inf):
-                inv_dist.append(0)
-            if (d[0][0] == 0): 
-                inv_dist.append(2)
-            else: 
-                inv_dist.append(1/d[0][0])
-        else: 
-            inv_dist.append(2)
+        else:
+            target_author_deg.append(0)
+        
             
         if (node_info[index_target][4] != ''):
             target_importance.append(journal_importance[journals.index(node_info[index_target][4])])
@@ -107,7 +101,7 @@ def preprocess(data_set_reduced, IDs, node_info, degrees, closeness, g_authors, 
     # convert list of lists into array
     # documents as rows, unique words as columns (i.e., example as rows, features as columns)
     
-    return np.array([overlap_title, temp_diff, comm_auth, target_close, target_deg]).T
+    return np.array([overlap_title, temp_diff, comm_auth, source_close, target_deg, target_author_deg, target_importance]).T
 
 # create the idf matrix and all_unique_terms with training data
 def init_tw_idf(training_set, node_info, feature):
