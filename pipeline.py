@@ -9,12 +9,11 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import linear_kernel
 from sklearn import preprocessing
 from sklearn.metrics import f1_score
-import nltk
+
 import csv
-import math
 
 import xgboost as xgb
-from library import terms_to_graph
+
 from preprocessor import *
 
 saver = {}
@@ -82,12 +81,18 @@ features_TFIDF = vectorizer.fit_transform(corpus)
 # for each training example we need to compute features
 # in this baseline we will train the model on only 5% of the training set
 
-# randomly select 5% of training set
-ratio = 0.03
-print("RATIO :", ratio)
-to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*ratio)))
-training_set_reduced = [training_set[i] for i in to_keep]
+# randomly select r% of training set
+ratio = 0.001
 
+print("RATIO :", ratio)
+
+#to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*ratio)))
+#to_keep = range(round(len(training_set)*ratio))
+
+
+#training_set_reduced = [training_set[i] for i in to_keep]
+
+training_set_reduced = training_set
 
 print("Computing the graph of document citation")
 
@@ -146,8 +151,8 @@ for i in range(len(node_info)):
 
 for i in range(len(journal_importance)):
     journal_importance[i]/= n_papers[i]
-
-training_features = preprocess(training_set_reduced, IDs, node_info, degrees, closeness, g_authors, journals, journal_importance)
+print("PROCESSING THE TRAINING SET...")
+training_features = preprocess(training_set_reduced, IDs, node_info, g, degrees, closeness, g_authors, journals, journal_importance)
 
 #Add tw-idf on abstracts
 path_init = "data/idf_init_titles"
@@ -193,14 +198,15 @@ else:
 #titles = {'index': 2} #index in column of node_info
 #titles['all_unique_terms'], titles['idf'] = init_tw_idf(training_set_reduced, node_info, titles)
 
-training_features = add_tw_idf(training_features, training_set_reduced, node_info, abstracts)
-training_features = add_tw_idf(training_features, training_set_reduced, node_info, titles)
+training_features = add_tw_idf(training_features, training_set_reduced, node_info, abstracts, g, "abstract")
+training_features = add_tw_idf(training_features, training_set_reduced, node_info, titles, g, "title")
+
+#Save
+saver["training_features"] = training_features
 
 # scale
 training_features = preprocessing.scale(training_features)
 
-#Save
-saver["training_features"] = training_features
 
 # convert labels into integers then into column array
 labels = [int(element[2]) for element in training_set_reduced]
@@ -219,13 +225,21 @@ classifier.fit(training_features, labels_array)
 
 # test
 # we need to compute the features for the testing set 
-to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*ratio)))
-testing_set_reduced = [training_set[i] for i in to_keep]
 
-testing_features = preprocess(testing_set_reduced, IDs, node_info, degrees, closeness, g_authors, journals, journal_importance)
+#to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*ratio/5)))
+#to_keep = range(round(len(training_set)*ratio), len(training_set))
+#
+#testing_set_reduced = [training_set[i] for i in to_keep]
 
-testing_features = add_tw_idf(testing_features, testing_set_reduced, node_info, abstracts)
-testing_features = add_tw_idf(testing_features, testing_set_reduced, node_info, titles)
+testing_set_reduced = testing_set
+
+print("PROCESSING THE TESTING SET...")
+testing_features = preprocess(testing_set_reduced, IDs, node_info, g, degrees, closeness, g_authors, journals, journal_importance)
+
+testing_features = add_tw_idf(testing_features, testing_set_reduced, node_info, abstracts, g, "abstract")
+testing_features = add_tw_idf(testing_features, testing_set_reduced, node_info, titles, g, "title")
+
+saver["testing_features"] = testing_features
 
 # scale
 testing_features = preprocessing.scale(testing_features)
@@ -235,18 +249,18 @@ saver["testing_features"] = testing_features
 # issue predictions
 predictions_SVM = list(classifier.predict(testing_features))
 
-# Print F1 score
+#Print F1 score
 
-labels = [int(element[2]) for element in testing_set_reduced]
-labels = list(labels)
-labels_array = np.array(labels)
-saver["testing_labels"] = labels_array
+#labels = [int(element[2]) for element in testing_set_reduced]
+#labels = list(labels)
+#labels_array = np.array(labels)
+#saver["testing_labels"] = labels_array
 
-print("f1 Score : ", f1_score(y_true=labels_array, y_pred = predictions_SVM))
+#print("f1 Score : ", f1_score(y_true=labels_array, y_pred = predictions_SVM))
 
 file_Name = "data/saved_data"
 fileObject = open(file_Name,'wb') 
-pickle.dump(saver,fileObject)
+pickle.dump(saver,fileObject) 
 fileObject.close()
 
 
@@ -254,7 +268,11 @@ fileObject.close()
 # write predictions to .csv file suitable for Kaggle (just make sure to add the column names)
 # predictions_SVM = zip(range(len(testing_set)), predictions_SVM)
 
-# with open("improved_predictions.csv","wb") as pred1:
-#     csv_out = csv.writer(pred1)
-#     for row in predictions_SVM:
-#         csv_out.writerow(row)
+f = open("improved_predictions.csv", 'w')
+f.write('id,category\n')
+for i in range(len(predictions_SVM)):
+    f.write(str(i))
+    f.write(',')
+    f.write(str(predictions_SVM[i]))
+    f.write('\n') 
+f.close()
