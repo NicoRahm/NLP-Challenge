@@ -1,18 +1,11 @@
-import random
 import numpy as np
-import igraph
-from sklearn import svm
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import linear_kernel
-from sklearn import preprocessing
-from sklearn.metrics import f1_score
 import nltk
-import csv
-import math
-from sklearn.decomposition import PCA
-import sys
 
-import xgboost as xgb
+import math
+
+import os
+import pickle
+
 from library import *
 from scipy.sparse import csr_matrix
 
@@ -50,7 +43,10 @@ def preprocess(data_set_reduced, IDs, node_info, g_articles, degrees, closeness,
     target_importance = []
     
     # Number of common article cited 
-    comm_cit = []
+    comm_cit_OUT = []
+    
+    # Number of common article that cite it
+    comm_cit_IN = []
 
     authors = [node[3].split(",") for node in node_info]
     unique_authors = list(set([item for sublist in authors for item in sublist]))
@@ -85,10 +81,16 @@ def preprocess(data_set_reduced, IDs, node_info, g_articles, degrees, closeness,
         else:
             target_importance.append(0)
         
-        source_neighb = set(g_articles.neighborhood(index_source))
-        target_neighb = set(g_articles.neighborhood(index_target))
+        source_neighb = set(g_articles.neighbors(index_source, mode = 'IN'))
+        target_neighb = set(g_articles.neighbors(index_target, mode = 'IN'))
         
-        comm_cit.append(len(source_neighb.intersection(target_neighb)))
+        comm_cit_IN.append(len(source_neighb.intersection(target_neighb)))
+        
+        source_neighb = set(g_articles.neighbors(index_source, mode = 'OUT'))
+        target_neighb = set(g_articles.neighbors(index_target, mode = 'OUT'))
+        
+        comm_cit_OUT.append(len(source_neighb.intersection(target_neighb)))
+
         
     	# convert to lowercase and tokenize
         source_title = source_info[2].lower().split(" ")
@@ -114,7 +116,7 @@ def preprocess(data_set_reduced, IDs, node_info, g_articles, degrees, closeness,
     # convert list of lists into array
     # documents as rows, unique words as columns (i.e., example as rows, features as columns)
     
-    return np.array([overlap_title, temp_diff, comm_auth, source_close, target_deg, target_author_deg, target_author_close, target_importance, comm_cit]).T
+    return np.array([overlap_title, temp_diff, comm_auth, source_close, target_deg, target_author_deg, target_author_close, target_importance, comm_cit_IN, comm_cit_OUT]).T
 
 # create the idf matrix and all_unique_terms with training data
 def init_tw_idf(training_set, node_info, feature):
@@ -152,25 +154,18 @@ def init_tw_idf(training_set, node_info, feature):
         if counter % 200 == 0:
             print(counter, "terms have been processed", round(100*(counter/len(idf.keys())), 2), "%")
     return all_unique_terms, idf
-    
 
-def add_tw_idf(data_features, data_set, node_info, feature):
+
+
+def compute_text_metrics(node_info, feature, text_type):
+    
+    saver = {}
+    
     all_unique_terms = feature['all_unique_terms']
     idf = feature['idf']
-    #We only keep the info of the papers that a implicated in the given data_set (which can be reduced)
-    filtered_node_ids = []
-    for link_data in data_set:
-        filtered_node_ids.append(link_data[0])
-        filtered_node_ids.append(link_data[1])
-    #remove duplicate
-    filtered_node_ids = list(set(filtered_node_ids))
-    #keep only relevant papers
-    node_info = np.array([node for node in node_info if node[0] in filtered_node_ids])
     
     abstracts = np.array([d[5] for d in node_info])
-    abstracts_index = np.array([d[0] for d in node_info])
     
-    print("storing terms from roughly", 2*len(data_set), " documents as list of lists")
     terms_by_doc = [document.split(" ") for document in abstracts]
     n_terms_per_doc = [len(terms) for terms in terms_by_doc]
     # compute average number of terms
@@ -254,14 +249,63 @@ def add_tw_idf(data_features, data_set, node_info, feature):
         if counter % 200 == 0:
             print(counter, "documents have been processed", round(100*(counter/len(all_graphs)), 2), "%")
     
+    saver["degree"] = features_degree
+    saver["w_degree"] = features_w_degree
+    saver["closeness"] = features_closeness
+    saver["w_closeness"] = features_w_closeness
+    saver["tfidf"] = features_tfidf
+    saver["bm25"] = bm25
+         
+    file_Name = "data/text_metrics_" + text_type 
+    fileObject = open(file_Name,'wb') 
+    pickle.dump(saver,fileObject) 
+    fileObject.close()
+    
+    return(features_degree, features_w_degree, features_closeness, features_w_closeness, features_tfidf, bm25)
+
+    
+    
+
+def add_tw_idf(data_features, data_set, node_info, feature, g_cit, text_type):
+    
+    path_init = "data/text_metrics_" + text_type
+    if os.path.isfile(path_init):
+        fileObject = open(path_init,'rb') 
+        s = pickle.load(fileObject)
+        features_degree = s["degree"]
+        features_closeness = s["closeness"]
+        features_w_closeness = s["w_closeness"]
+        features_w_degree = s["w_degree"]
+        features_tfidf = s["tfidf"]
+        bm25 = s["bm25"]
+        print("Text metrics loaded for the " + text_type)
+        
+    else: 
+        features_degree, features_w_degree, features_closeness, features_w_closeness, features_tfidf, bm25 = compute_text_metrics(node_info, feature, text_type)
+        
+    abstracts_index = np.array([d[0] for d in node_info])  
 
     # Now we have a representation of each abstract (in fact 5 different representations !)
     # We'll find the pairs associated to each possible link et calculate the "produit scalaire"
     twidf_features = []
+    counter = 1
     for link_data in data_set:
         
         index1 = np.where(abstracts_index == link_data[0])[0][0]
         index2 = np.where(abstracts_index == link_data[1])[0][0]
+        
+        tfidf_citations = 0
+        degree_citations = 0
+        c = 0
+        neigh = g_cit.neighbors(index1, mode = 'OUT')
+        for n in neigh: 
+            if(index2 != n):
+                c+=1
+                tfidf_citations += features_tfidf[index2].dot(features_tfidf[n].transpose()).toarray()[0][0]
+                degree_citations += features_degree[index2].dot(features_degree[n].transpose()).toarray()[0][0]
+        if(c != 0):
+            tfidf_citations/=c
+            degree_citations/=c
         
         tfidf_product = features_tfidf[index1].dot(features_tfidf[index2].transpose()).toarray()[0][0]
         
@@ -275,10 +319,13 @@ def add_tw_idf(data_features, data_set, node_info, feature):
         
         source = bm25[index1].toarray()
         target = bm25[index2].toarray()
-        BM25 = source[:,target != 0].sum()
+        BM25 = source[:,target[0] != 0].sum()
         
-        twidf_features.append([tfidf_product, degree_product, w_degree_product, closeness_product,w_closeness_product, BM25])
-          
+        twidf_features.append([tfidf_product, degree_product, w_degree_product, closeness_product,w_closeness_product, BM25, tfidf_citations, degree_citations])
+        
+        counter += 1
+        if counter % 500 == 0:
+            print(counter, "data exemples have been processed for the " + text_type , round(100*(counter/len(data_set)), 2), "%")
         
     #outlook for curiosity
     print("twidf_features", twidf_features[:2])

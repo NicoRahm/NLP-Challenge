@@ -13,7 +13,7 @@ from sklearn.metrics import f1_score
 import csv
 
 import xgboost as xgb
-from library import terms_to_graph
+
 from preprocessor import *
 
 saver = {}
@@ -151,7 +151,7 @@ for i in range(len(node_info)):
 
 for i in range(len(journal_importance)):
     journal_importance[i]/= n_papers[i]
-
+print("PROCESSING THE TRAINING SET...")
 training_features = preprocess(training_set_reduced, IDs, node_info, g, degrees, closeness, g_authors, journals, journal_importance)
 
 #Add tw-idf on abstracts
@@ -198,14 +198,15 @@ else:
 #titles = {'index': 2} #index in column of node_info
 #titles['all_unique_terms'], titles['idf'] = init_tw_idf(training_set_reduced, node_info, titles)
 
-training_features = add_tw_idf(training_features, training_set_reduced, node_info, abstracts)
-training_features = add_tw_idf(training_features, training_set_reduced, node_info, titles)
+training_features = add_tw_idf(training_features, training_set_reduced, node_info, abstracts, g, "abstract")
+training_features = add_tw_idf(training_features, training_set_reduced, node_info, titles, g, "title")
+
+#Save
+saver["training_features"] = training_features
 
 # scale
 training_features = preprocessing.scale(training_features)
 
-#Save
-saver["training_features"] = training_features
 
 # convert labels into integers then into column array
 labels = [int(element[2]) for element in training_set_reduced]
@@ -232,10 +233,13 @@ classifier.fit(training_features, labels_array)
 
 testing_set_reduced = testing_set
 
-testing_features = preprocess(testing_set_reduced, IDs, node_info, degrees, closeness, g_authors, journals, journal_importance)
+print("PROCESSING THE TESTING SET...")
+testing_features = preprocess(testing_set_reduced, IDs, node_info, g, degrees, closeness, g_authors, journals, journal_importance)
 
-testing_features = add_tw_idf(testing_features, testing_set_reduced, node_info, abstracts)
-testing_features = add_tw_idf(testing_features, testing_set_reduced, node_info, titles)
+testing_features = add_tw_idf(testing_features, testing_set_reduced, node_info, abstracts, g, "abstract")
+testing_features = add_tw_idf(testing_features, testing_set_reduced, node_info, titles, g, "title")
+
+saver["testing_features"] = testing_features
 
 # scale
 testing_features = preprocessing.scale(testing_features)
@@ -245,14 +249,14 @@ saver["testing_features"] = testing_features
 # issue predictions
 predictions_SVM = list(classifier.predict(testing_features))
 
-# Print F1 score
+#Print F1 score
 
-labels = [int(element[2]) for element in testing_set_reduced]
-labels = list(labels)
-labels_array = np.array(labels)
-saver["testing_labels"] = labels_array
+#labels = [int(element[2]) for element in testing_set_reduced]
+#labels = list(labels)
+#labels_array = np.array(labels)
+#saver["testing_labels"] = labels_array
 
-print("f1 Score : ", f1_score(y_true=labels_array, y_pred = predictions_SVM))
+#print("f1 Score : ", f1_score(y_true=labels_array, y_pred = predictions_SVM))
 
 file_Name = "data/saved_data"
 fileObject = open(file_Name,'wb') 

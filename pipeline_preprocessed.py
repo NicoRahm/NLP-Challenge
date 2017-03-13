@@ -5,11 +5,12 @@ import pickle
 from sklearn import svm
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import linear_kernel
-from sklearn import preprocessing
+from sklearn.preprocessing import scale
 from sklearn.metrics import f1_score
+from sklearn.decomposition import PCA
 
 from keras.models import Sequential
-from keras.layers import Dense, Activation
+from keras.layers import Dense, Activation, Dropout
 from keras.activations import softmax, sigmoid
 
 
@@ -17,95 +18,103 @@ import math
 
 import xgboost as xgb
 
+#selected_features = range(23)
+selected_features = [0,1,2,3,4,5,6,7,8,9,11,13,15,17]
 
+# Model
+#==============================================================================
 
-fileObject = open("data/saved_data",'rb')  
-saved = pickle.load(fileObject)
-fileObject.close()
-
-##Load
-training_features = saved["training_features"]
-labels_array = saved["training_labels"]
-
-to_keep_train = range(int(len(training_features)*0.95))
-to_keep_test = range(int(len(training_features)*0.95), len(training_features))
-#
-## Select data
-training_features_train = training_features[to_keep_train]
-labels_array_train = labels_array[to_keep_train]
-
-#training_features_train = training_features_train[:, [0,1,2,4,5,6,8,11]]
-
-
-# initialize basic SVM
-#param = {'bst:max_depth':2, 'bst:eta':1, 'silent':1, 'objective':'binary:logistic' }
-#dtrain = xgb.DMatrix(training_features, label=labels_array)
-#bst = xgb.train(param, dtrain, 10)
-#gbm = xgb.XGBClassifier(max_depth=10, 
-#                        n_estimators=400, 
-#                        learning_rate=0.08,
-#                        reg_alpha = 0.01).fit(training_features_train, labels_array_train)
+gbm = xgb.XGBClassifier(max_depth=3, 
+                        n_estimators=200, 
+                        learning_rate=0.1,
+                        reg_alpha=0.001)
 
 
 model = Sequential()
-model.add(Dense(32, input_shape = (13,)))
+model.add(Dense(32, input_shape = (len(selected_features),)))
 model.add(Activation('sigmoid'))
+
+model.add(Dense(64))
+model.add(Activation('sigmoid'))
+model.add(Dropout(0.1))
 
 model.add(Dense(128))
 model.add(Activation('sigmoid'))
+model.add(Dropout(0.1))
 
-model.add(Dense(32))
+model.add(Dense(64))
 model.add(Activation('sigmoid'))
+model.add(Dropout(0.1))
 
 model.add(Dense(1))
 model.add(Activation('sigmoid'))
 
 model.compile(optimizer = 'Adam', loss = 'binary_crossentropy')
 
-model.fit(training_features_train, labels_array_train, nb_epoch=5)
 
-#classifier = svm.LinearSVC()
-
-# train
-#classifier.fit(training_features, labels_array)
+#==============================================================================
 
 
-# test
-# Load
+fileObject = open("data/saved_data",'rb')  
+saved = pickle.load(fileObject)
+fileObject.close()
 
-#testing_features = saved["testing_features"]
 
+#Testing
+#==============================================================================
 
-testing_features = training_features[to_keep_test]
-#testing_features = testing_features[:, [0,1,2,4,5,6,8,11]]
-
+#data = saved["training_features"]
+#labels_array = saved["training_labels"]
+# 
+#to_keep_train = range(int(len(data)*0.95))
+#to_keep_test = range(int(len(data)*0.95), len(data))
 #
-## Select data
-#testing_features = testing_features[:, [0,1,2,3,4,6,7,8,9,10,11,12]]
+#training_features = data[to_keep_train]
+#labels_array_train = labels_array[to_keep_train]
+#testing_features = data[to_keep_test]
+#labels_array_test = labels_array[to_keep_test]
+#
+#training_features = training_features[:, selected_features]
+#testing_features = testing_features[:, selected_features]
+#
+#training_features = scale(training_features)
+#testing_features = scale(testing_features)
+#
+#gbm.fit(training_features, labels_array_train)
+#predictions_XGB = gbm.predict(testing_features)
+#print("f1 Score XGB : ", f1_score(y_true=labels_array_test, y_pred = np.round(predictions_XGB)))
+#
+#model.fit(training_features, labels_array_train, nb_epoch = 4, batch_size = 258)
+#predictions_DL = model.predict_classes(testing_features)
+#print("f1 Score DL : ", f1_score(y_true=labels_array_test, y_pred = np.round(predictions_DL)))
 
-# issue predictions
-#predictions_SVM = list(classifier.predict(testing_features))
-#dtest = xgb.DMatrix(testing_features)
-#predictions_SVM = np.round(bst.predict(dtest))
-#predictions_SVM = gbm.predict(testing_features)
-predictions_SVM = model.predict(testing_features)
+#==============================================================================
 
-# Print F1 score
-#labels_array = saved["testing_labels"]
-labels_array_test = labels_array[to_keep_test]
-print(predictions_SVM.shape)
+# Issue prediction 
+#==============================================================================
+training_features = saved["training_features"]
+labels_array = saved["training_labels"]
+testing_features = saved["testing_features"]
 
-print("f1 Score : ", f1_score(y_true=labels_array_test, y_pred = np.round(predictions_SVM)))
+training_features = scale(training_features)
+testing_features = scale(testing_features)
 
+training_features = training_features[:, selected_features]
+testing_features = testing_features[:, selected_features]
 
-#write predictions to .csv file suitable for Kaggle (just make sure to add the column names)
-#predictions_SVM = zip(range(len(testing_set)), predictions_SVM)
+gbm.fit(training_features, labels_array)
+predictions = gbm.predict(testing_features)
+
+#model.fit(training_features, labels_array, nb_epoch = 1, batch_size = 512)
+#predictions = model.predict_classes(testing_features)
 
 f = open("improved_predictions.csv", 'w')
 f.write('id,category\n')
-for i in range(len(predictions_SVM)):
+for i in range(len(predictions)):
     f.write(str(i))
     f.write(',')
-    f.write(str(predictions_SVM[i]))
+    f.write(str(predictions[i]))
     f.write('\n') 
 f.close()
+
+#==============================================================================
