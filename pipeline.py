@@ -83,7 +83,7 @@ features_TFIDF = vectorizer.fit_transform(corpus)
 # in this baseline we will train the model on only 5% of the training set
 
 # randomly select 5% of training set
-ratio = 0.003
+ratio = 0.03
 print("RATIO :", ratio)
 to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*ratio)))
 training_set_reduced = [training_set[i] for i in to_keep]

@@ -11,6 +11,7 @@ import csv
 import math
 from sklearn.decomposition import PCA
 import sys
+import time
 
 import xgboost as xgb
 from library import *
@@ -198,26 +199,23 @@ def add_tw_idf(data_features, data_set, node_info, feature):
     len_all = len(all_unique_terms)
     
     counter = 0
-    
     for i in range(len(all_graphs)):
-    
         graph = all_graphs[i]
         # retain only the terms originally present in the data test
         terms_in_doc = [term for term in terms_by_doc[i] if term in all_unique_terms]
         doc_len = len(terms_in_doc)
     
-        # returns node (1) name, (2) degree, (3) weighted degree, (4) closeness, (5) weighted closeness
-        my_metrics = compute_node_centrality(graph)
+        # returns node (1) name, (2) degree, (3) weighted degree, (4) closeness, (5) weighted closeness  
+        my_metrics = compute_node_centrality(graph)   
         feature_row_degree = [0]*len_all
         feature_row_w_degree = [0]*len_all
         feature_row_closeness = [0]*len_all
         feature_row_w_closeness = [0]*len_all
         feature_row_tfidf = [0]*len_all
-    
+        denominator = (1-b+(b*(float(doc_len)/avg_len)))
         for term in list(set(terms_in_doc)):
             index = all_unique_terms.index(term)
             idf_term = idf[term]
-            denominator = (1-b+(b*(float(doc_len)/avg_len)))
             metrics_term = [t[1:5] for t in my_metrics if t[0]==term][0]
     
             # store TW-IDF values
@@ -231,13 +229,11 @@ def add_tw_idf(data_features, data_set, node_info, feature):
     
             # store TF-IDF value
             feature_row_tfidf[index] = ((1+math.log1p(1+math.log1p(tf)))/(1-0.2+(0.2*(float(doc_len)/avg_len)))) * idf_term
-    
         features_degree.append(csr_matrix(feature_row_degree))
         features_w_degree.append(csr_matrix(feature_row_w_degree))
         features_closeness.append(csr_matrix(feature_row_closeness))
         features_w_closeness.append(csr_matrix(feature_row_w_closeness))
         features_tfidf.append(csr_matrix(feature_row_tfidf))
-    
         counter += 1
         if counter % 200 == 0:
             print(counter, "documents have been processed", round(100*(counter/len(all_graphs)), 2), "%")
