@@ -210,11 +210,10 @@ training_features = preprocessing.scale(training_features)
 
 # convert labels into integers then into column array
 labels = [int(element[2]) for element in training_set_reduced]
-labels = list(labels)
 labels_array = np.array(labels)
 saver["training_labels"] = labels_array
 
-# initialize basic SVM
+# initialize classifier
 classifier = xgb.XGBClassifier(n_estimators = 100, 
                                learning_rate = 0.1, 
                                max_depth = 3)
@@ -247,7 +246,7 @@ testing_features = preprocessing.scale(testing_features)
 saver["testing_features"] = testing_features
 
 # issue predictions
-predictions_SVM = list(classifier.predict(testing_features))
+predictions = list(classifier.predict(testing_features))
 
 #Print F1 score
 
@@ -256,7 +255,7 @@ predictions_SVM = list(classifier.predict(testing_features))
 #labels_array = np.array(labels)
 #saver["testing_labels"] = labels_array
 
-#print("f1 Score : ", f1_score(y_true=labels_array, y_pred = predictions_SVM))
+#print("f1 Score : ", f1_score(y_true=labels_array, y_pred = predictions))
 
 file_Name = "data/saved_data"
 fileObject = open(file_Name,'wb') 
@@ -270,9 +269,9 @@ fileObject.close()
 
 f = open("improved_predictions.csv", 'w')
 f.write('id,category\n')
-for i in range(len(predictions_SVM)):
+for i in range(len(predictions)):
     f.write(str(i))
     f.write(',')
-    f.write(str(predictions_SVM[i]))
+    f.write(str(predictions[i]))
     f.write('\n') 
 f.close()
