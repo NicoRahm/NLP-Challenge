@@ -2,6 +2,9 @@ import numpy as np
 import nltk
 
 import math
+import sys
+import time
+
 
 import os
 import pickle
@@ -198,27 +201,26 @@ def compute_text_metrics(node_info, feature, text_type):
     len_all = len(all_unique_terms)
     
     counter = 0
-    
     for i in range(len(all_graphs)):
-    
         graph = all_graphs[i]
         # retain only the terms originally present in the data test
         terms_in_doc = [term for term in terms_by_doc[i] if term in all_unique_terms]
         doc_len = len(terms_in_doc)
     
-        # returns node (1) name, (2) degree, (3) weighted degree, (4) closeness, (5) weighted closeness
-        my_metrics = compute_node_centrality(graph)
+        # returns node (1) name, (2) degree, (3) weighted degree, (4) closeness, (5) weighted closeness  
+        my_metrics = compute_node_centrality(graph)   
         feature_row_degree = [0]*len_all
         feature_row_w_degree = [0]*len_all
         feature_row_closeness = [0]*len_all
         feature_row_w_closeness = [0]*len_all
         feature_row_tfidf = [0]*len_all
+
+        denominator = (1-b+(b*(float(doc_len)/avg_len)))
         bm25_row = [0]*len_all
     
         for term in list(set(terms_in_doc)):
             index = all_unique_terms.index(term)
             idf_term = idf[term]
-            denominator = (1-b+(b*(float(doc_len)/avg_len)))
             metrics_term = [t[1:5] for t in my_metrics if t[0]==term][0]
     
             # store TW-IDF values
@@ -234,6 +236,7 @@ def compute_text_metrics(node_info, feature, text_type):
             feature_row_tfidf[index] = ((1+math.log1p(1+math.log1p(tf)))/(1-0.2+(0.2*(float(doc_len)/avg_len)))) * idf_term
             bm25_row[index] = idf_term * (k1 +1)*tf/(k1 + tf)
     
+
         features_degree.append(csr_matrix(feature_row_degree))
         features_w_degree.append(csr_matrix(feature_row_w_degree))
         features_closeness.append(csr_matrix(feature_row_closeness))

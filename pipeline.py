@@ -81,9 +81,9 @@ features_TFIDF = vectorizer.fit_transform(corpus)
 # for each training example we need to compute features
 # in this baseline we will train the model on only 5% of the training set
 
-# randomly select 5% of training set
+# randomly select r% of training set
+ratio = 0.001
 
-ratio = 1
 print("RATIO :", ratio)
 
 #to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set)*ratio)))
