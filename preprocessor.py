@@ -175,10 +175,6 @@ def compute_text_metrics(node_info, feature, text_type):
     avg_len = sum(n_terms_per_doc)/len(n_terms_per_doc)
     print("min, max and average number of terms per document:", min(n_terms_per_doc), max(n_terms_per_doc), avg_len)
     
-    ############
-    # training #
-    ############
-    
     print("creating a graph-of-words for each document...")
 
     window = 3
